@@ -10,12 +10,12 @@
 
 <body style="height: 100%; margin: 0">
   <select name="" id="sel">
-    <option value="EXP">Exportações</option>
-    <option value="IMP" selected>Importções</option>
+    <option value="EXP" selected>Exportações</option>
+    <option value="IMP">Importções</option>
     <option value="BAL">Balança</option>
   </select>
-  <div id="container" style="height: 100%"></div>
-  <div id="container2" style="height: 100%"></div>
+  <div id="container" style="height: 500px"></div>
+  <div id="container2" style="height: 200px"></div>
 
   <script type="text/javascript"
     src="https://echarts.apache.org/en/js/vendors/jquery@3.7.1/dist/jquery.min.js"></script>
@@ -52,10 +52,12 @@
     var app = {};
     var ROOT_PATH = 'https://echarts.apache.org/examples';
     var option;
-    var selType = "IMP";
+    var selType = "EXP";
     var dataB; // Vai armazenar os dados do seu JSON
+    var option;
     const anoSelecionado = '1997';
-    function updateChart(tipoDado) {
+
+    function updateChart(tipoDado, ano) {
       if (!myChart || !dataB) {
         console.error("Gráfico ou dados não inicializados.");
         return;
@@ -69,7 +71,7 @@
       };
 
       // 1. Transforma os dados do seu JSON para o formato que o ECharts entende
-      const dadosParaMapa = dataB[tipoDado][anoSelecionado].map(pais => {
+      const dadosParaMapa = dataB[tipoDado][ano].map(pais => {
         return {
           name: pais.name,
           value: pais.us_value // Usando sempre a métrica 'us_value'
@@ -81,17 +83,28 @@
       const valorMin = Math.min(...valores);
       const valorMax = Math.max(...valores);
 
+      var colors = ['#a52415', '#ece6d0', '#12391c'];
+
+      if (tipoDado == 'EXP') {
+        colors = ['#e1f5e8', '#173d22'];
+      } else if (tipoDado == 'IMP') {
+        colors = ['#faeae2', '#a22b1c'];
+      }
+
       // 3. Atualiza o gráfico com as novas opções (série, título e legenda)
       myChart.setOption({
         title: {
-          text: `${titulos[tipoDado]} (${anoSelecionado})`
+          text: `Volume de Exportações do Brasil (Ano ${ano})`,
+          subtext: `Dados do Monitor do Comércio Exterior Brasileiro`,
+          left: 'center',
+          top: 'top'
         },
         visualMap: {
           min: valorMin,
           max: valorMax,
           inRange: {
             // Cores para valores negativos (vermelho), próximos de zero (amarelo) e positivos (azul)
-            color: tipoDado === 'BAL' ? ['#d73027', '#fee090', '#4575b4'] : ['#e0f3f8', '#4575b4']
+            color: colors
           }
         },
         series: [
@@ -103,6 +116,41 @@
         ]
       });
     }
+    function formatarNumeroAbreviado(numero) {
+      // Define os valores para cada ordem de grandeza
+      const MIL = 1e3;
+      const MILHAO = 1e6;
+      const BILHAO = 1e9;
+      const TRILHAO = 1e12;
+
+      // Garante que estamos trabalhando com um número
+      const numAbs = Math.abs(numero);
+      let valorFinal;
+      let sufixo;
+
+      if (numAbs >= TRILHAO) {
+        valorFinal = numero / TRILHAO;
+        sufixo = 'tri';
+      } else if (numAbs >= BILHAO) {
+        valorFinal = numero / BILHAO;
+        sufixo = 'bi';
+      } else if (numAbs >= MILHAO) {
+        valorFinal = numero / MILHAO;
+        sufixo = 'mi';
+      } else if (numAbs >= MIL) {
+        valorFinal = numero / MIL;
+        sufixo = 'mil';
+      } else {
+        // Para números menores que mil, retorna o número com formatação local
+        return numero.toLocaleString('pt-BR');
+      }
+
+      // Arredonda para uma casa decimal e substitui o ponto por vírgula
+      const valorFormatado = valorFinal.toFixed(1).replace('.', ',');
+
+      return `${valorFormatado} ${sufixo}`;
+    }
+
     myChart.showLoading();
 
     // Combina as duas lógicas: primeiro busca os dados do mapa, depois busca os seus dados de negócio.
@@ -149,10 +197,10 @@
       const valorMin = Math.min(...valores);
       const valorMax = Math.max(...valores);
 
-      const option = {
+      option = {
         title: {
-          text: `Balança Comercial por País (${anoSelecionado})`,
-          subtext: `Dados de BR-exportacoes_importacoes_2025.json`,
+          text: `Volume de Exportações do Brasil (Ano ${anoSelecionado})`,
+          subtext: `Dados do Monitor do Comércio Exterior Brasileiro`,
           left: 'center',
           top: 'top'
         },
@@ -164,18 +212,20 @@
             if (!params.value) {
               return `${params.name}`;
             }
+            let value = formatarNumeroAbreviado(params.value);
             // Formata o número para melhor leitura
-            return `${params.name}<br/>${metrica}: ${params.value.toLocaleString('pt-BR')}`;
+            return `${params.name}<br/><strong>US$</strong>: ${value}`;
           }
         },
         visualMap: {
-          left: 'left',
+          left: 'right',
+          top: 'top',
           // Ajusta dinamicamente o min e max da legenda
           min: valorMin,
           max: valorMax,
           inRange: {
             // Cores para valores negativos (vermelho), próximos de zero (amarelo) e positivos (azul)
-            color: ['#d73027', '#fee090', '#4575b4']
+            color: ['#e1f5e8', '#173d22']
           },
           text: ['Alto', 'Baixo'],
           calculable: true
@@ -205,7 +255,8 @@
       // 2. ADICIONA o "ouvinte" de eventos. Ele chamará updateChart sempre que o valor mudar.
       tipoDadoSelect.addEventListener('change', function () {
         const novoTipoSelecionado = this.value;
-        updateChart(novoTipoSelecionado);
+        selType = novoTipoSelecionado;
+        updateChart(novoTipoSelecionado, 2025);
       });
 
     }).fail(function (error) {
@@ -222,9 +273,12 @@
 
   </script>
   <script type="text/javascript">
+
     function criarGraficoDeLinhaSomaImportacoes(dataB) {
       // 1. Acessar os dados de importação
       const dadosImportacao = dataB.IMP;
+      const dadosExpotacao = dataB.EXP;
+      const dadosBalanca = dataB.BAL;
 
       // 2. Extrair e ordenar os anos para o eixo X
       const anos = Object.keys(dadosImportacao).sort();
@@ -240,7 +294,7 @@
         return somaTotal;
       });
       const somasAnuaisExp = anos.map(ano => {
-        const entradasDoAno = dataB.EXP[ano];
+        const entradasDoAno = dadosExpotacao[ano];
         // Usa a função reduce para somar os valores de todos os países no ano
         const somaTotal = entradasDoAno.reduce((acumulador, pais) => {
           // Adiciona o valor do país ao acumulador
@@ -249,7 +303,7 @@
         return somaTotal;
       });
       const somasAnuaisBal = anos.map(ano => {
-        const entradasDoAno = dataB.BAL[ano];
+        const entradasDoAno = dadosBalanca[ano];
         // Usa a função reduce para somar os valores de todos os países no ano
         const somaTotal = entradasDoAno.reduce((acumulador, pais) => {
           // Adiciona o valor do país ao acumulador
@@ -265,22 +319,21 @@
         useDirtyRect: false
       });
 
-      myChart2.resize({
-        height: 200
-      });
-
-      var option = {
+      var option2 = {
         title: {
-          text: 'Soma Anual de Importações (US$)',
-          left: 'center'
+          text: 'Total por ano',
+          left: 'left'
         },
         tooltip: {
           trigger: 'axis',
           formatter: function (params) {
             const ano = params[0].name;
-            const valor = params[0].value;
-            return `Ano: ${ano}<br/>Total Importado: ${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' })}`;
+            // changeToSelectedYear(ano);
+            updateChart(selType, ano);
           }
+        },
+        legend: {
+          data: ['Exportação', 'Importação', 'Balanço Comercial'],
         },
         grid: {
           left: '3%',
@@ -311,37 +364,47 @@
           type: 'category',
           boundaryGap: false,
           // 4. Usa a lista de anos no eixo X
-          data: anos
+          data: anos,
         },
         yAxis: {
           type: 'value',
           axisLabel: {
             formatter: function (value) {
               // Formata o eixo Y para exibir valores de forma mais curta (ex: 1B para 1 bilhão)
-              if (value >= 1e9) return (value / 1e9) + 'B';
+              if (value >= 1e9 || value < 1e9) return (value / 1e9) + 'B';
               if (value >= 1e6) return (value / 1e6) + 'M';
               if (value >= 1e3) return (value / 1e3) + 'k';
               return value;
             }
-          }
+          },
         },
+        color: ["#2a4434", "#ebbeb4", "#bbd4ec"],
         series: [
+          // '5. Usa a lista com as somas anuais como dados da série
+
           {
-            name: 'Total Importações',
-            type: 'line',
-            stack: 'Total', // Mantém o conceito de "empilhado"
-            areaStyle: {}, // Adiciona uma área colorida abaixo da linha
-            emphasis: {
-              focus: 'series'
-            },
-            // 5. Usa a lista com as somas anuais como dados da série
-            data: [somasAnuaisImportacao, somasAnuaisBal, somasAnuaisExp]
-          }
+            name: "Exportação",
+            type: "line",
+            data: somasAnuaisExp,
+            smooth: true
+          },
+          {
+            name: "Importação",
+            type: "line",
+            data: somasAnuaisImportacao,
+            smooth: true
+          },
+          {
+            name: "Balanço Comercial",
+            type: "line",
+            data: somasAnuaisBal,
+            smooth: true
+          },
         ]
       };
 
-      if (option && typeof option === 'object') {
-        myChart2.setOption(option);
+      if (option2 && typeof option2 === 'object') {
+        myChart2.setOption(option2);
       }
 
       window.addEventListener('resize', myChart2.resize);
